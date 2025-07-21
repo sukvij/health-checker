@@ -1,50 +1,32 @@
-// app/screen/signup.tsx
-import { View, Text, StyleSheet, Button, TextInput, ActivityIndicator } from 'react-native'; // Import TextInput from 'react-native'
+// app/(screens)/signup.tsx
+import { View, Text, StyleSheet, Button, TouchableOpacity } from 'react-native';
 import React, { useState } from 'react';
+import { TextInput } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
 
 export default function SignUpScreen() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
-  const [message, setMessage] = useState<string>('');
-  const [messageType, setMessageType] = useState<'success' | 'error' | ''>('');
-  const [loading, setLoading] = useState<boolean>(false); // State for loading indicator
+  const [confirmPassword, setConfirmPassword] = useState<string>('');
   const router = useRouter();
 
-  const handleSignup = async () => {
-    setMessage(''); // Clear previous messages
-    setMessageType('');
-    setLoading(true); // Start loading
+  const handleSignUp = () => {
+    // In a real app, you would perform user registration here (e.g., API call)
+    console.log('Attempting sign up with:', { email, password, confirmPassword });
 
-    try {
-      const response = await fetch('http://localhost:8080/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      setLoading(false); // Stop loading
-
-      if (response.status === 201) { // Assuming 201 Created for successful user creation
-        setMessage('Sign Up successful! Please log in.');
-        setMessageType('success');
-        // Optionally navigate to the login screen after a short delay
-        setTimeout(() => {
-          // router.replace('/(screen)/login'); // Use replace to prevent going back to signup
-        }, 2000);
-      } else {
-        const errorData = await response.json();
-        setMessage(`Sign Up failed: ${errorData.message || 'Unknown error'}`);
-        setMessageType('error');
-      }
-    } catch (error) {
-      setLoading(false); // Stop loading
-      console.error('Network error during signup:', error);
-      setMessage('Network error. Please try again later.');
-      setMessageType('error');
+    if (password !== confirmPassword) {
+      // In a real app, show an error message to the user
+      console.error("Passwords do not match!");
+      return;
     }
+
+    // Simulate successful signup and navigate to login or profile
+    router.replace('/(screens)/login'); // After signup, typically go to login
+    // Or, if you auto-login after signup: router.replace('/(screens)/profile');
+  };
+
+  const handleGoToLogin = () => {
+    router.push('/(screens)/login');
   };
 
   return (
@@ -57,7 +39,6 @@ export default function SignUpScreen() {
         onChangeText={setEmail}
         keyboardType="email-address"
         autoCapitalize="none"
-        editable={!loading} // Disable input while loading
       />
       <TextInput
         style={styles.input}
@@ -65,30 +46,22 @@ export default function SignUpScreen() {
         value={password}
         onChangeText={setPassword}
         secureTextEntry
-        editable={!loading} // Disable input while loading
       />
-      <Button
-        title={loading ? "Signing Up..." : "Sign Up"}
-        onPress={handleSignup}
-        color="#28a745" // A green color for sign up
-        disabled={loading} // Disable button while loading
+      <TextInput
+        style={styles.input}
+        placeholder="Confirm Password"
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+        secureTextEntry
       />
+      <Button title="Sign Up" onPress={handleSignUp} color="#28a745" />
 
-      {loading && <ActivityIndicator size="small" color="#007AFF" style={styles.activityIndicator} />}
-
-      {message ? (
-        <Text style={[styles.message, messageType === 'error' ? styles.errorMessage : styles.successMessage]}>
-          {message}
-        </Text>
-      ) : null}
-
-      <View style={styles.spacer} />
-      <Button
-        title="Go Back"
-        onPress={() => router.back()}
-        color="#6c757d"
-        disabled={loading} // Disable button while loading
-      />
+      <View style={styles.loginContainer}>
+        <Text style={styles.loginText}>Already have an account?</Text>
+        <TouchableOpacity onPress={handleGoToLogin}>
+          <Text style={styles.loginButtonText}>Login</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -101,40 +74,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontSize: 28, // Slightly larger title
+    fontSize: 28,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 30, // More space below title
+    marginBottom: 30,
     color: '#333',
   },
   input: {
     borderWidth: 1,
     borderColor: '#ccc',
-    padding: 15, // More padding
-    marginBottom: 15, // More space between inputs
-    borderRadius: 8, // Slightly more rounded corners
-    fontSize: 16, // Larger font size
-    backgroundColor: '#fff', // White background for inputs
+    padding: 12,
+    marginBottom: 15,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    fontSize: 16,
   },
-  message: {
+  loginContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     marginTop: 20,
-    padding: 10,
-    borderRadius: 5,
-    textAlign: 'center',
-    fontSize: 14,
   },
-  successMessage: {
-    backgroundColor: '#d4edda', // Light green
-    color: '#155724', // Dark green text
+  loginText: {
+    fontSize: 16,
+    color: '#666',
   },
-  errorMessage: {
-    backgroundColor: '#f8d7da', // Light red
-    color: '#721c24', // Dark red text
-  },
-  activityIndicator: {
-    marginTop: 10,
-  },
-  spacer: {
-    height: 20, // Space between signup button and back button
+  loginButtonText: {
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: 'bold',
+    marginLeft: 5,
   },
 });
