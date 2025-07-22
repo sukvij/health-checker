@@ -24,12 +24,12 @@ export default function DashboardScreen() {
 
   const handleViewReports = () => {
     console.log('Navigating to Report List (placeholder)');
-    // router.push('/(screens)/report_list'); // Uncomment when report_list.tsx is added
+    router.push('/(screens)/report_list'); // Uncomment when report_list.tsx is added
   };
 
   const handleChatWithAI = () => {
     console.log('Navigating to AI Chat (placeholder)');
-    // router.push('/(screens)/chat_ai'); // Uncomment when chat_ai.tsx is added
+    router.push('/(screens)/chat_ai'); // Uncomment when chat_ai.tsx is added
   };
 
   return (
