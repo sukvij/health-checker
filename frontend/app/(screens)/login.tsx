@@ -25,7 +25,7 @@ export default function LoginScreen() {
 
     // Navigate to the profile screen, passing dummy user data as a JSON string
     router.replace({
-      pathname: '/(screens)/profile',
+      pathname: '/(screens)/dashboard',
       params: { user: JSON.stringify(dummyUser) },
     });
   };
