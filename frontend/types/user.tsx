@@ -1,6 +1,6 @@
 // types/user.tsx
 export interface User {
-  id: string;
+  id: Number;
   name: string;
   email: string;
   // Add any other user-related properties here, e.g.:

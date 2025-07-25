@@ -1,66 +1,53 @@
 // app/(screens)/report_list.tsx
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'expo-router'; // Import useRouter for navigation
 import HealthReportCard from '../../components/HealthReportCard'; // Import HealthReportCard
 import { HealthReport } from '../../types/health_report'; // Import HealthReport type
 
 export default function ReportListScreen() {
+  const router = useRouter(); // Initialize useRouter
   const [reports, setReports] = useState<HealthReport[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-
-  // Dummy data for health reports
-  const dummyReports: HealthReport[] = [
-    {
-      id: 'dummyRep1',
-      userId: 'dummyUser123',
-      type: 'Daily Log',
-      description: 'Felt energetic and completed a 30-minute walk.',
-      date: '2023-11-01',
-      createdAt: '2023-11-01T10:00:00Z',
-    },
-    {
-      id: 'dummyRep2',
-      userId: 'dummyUser123',
-      type: 'Symptom Update',
-      description: 'Experienced mild headache in the evening, took rest.',
-      date: '2023-10-31',
-      createdAt: '2023-10-31T18:30:00Z',
-    },
-    {
-      id: 'dummyRep3',
-      userId: 'dummyUser123',
-      type: 'Activity',
-      description: 'Yoga session for 45 minutes. Feeling flexible!',
-      date: '2023-10-30',
-      createdAt: '2023-10-30T07:15:00Z',
-    },
-    {
-      id: 'dummyRep4',
-      userId: 'dummyUser123',
-      type: 'Food Log',
-      description: 'Had a balanced meal with greens and protein.',
-      date: '2023-10-29',
-      createdAt: '2023-10-29T13:00:00Z',
-    },
-  ];
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulate fetching data from a database
-    console.log("Simulating fetching reports from database...");
+    const userId = localStorage.getItem("currentUserId")
+    const fetchHealthReports = async () => {
+      setIsLoading(true); // Start loading
+      setError(null);     // Clear any previous errors
 
-    // Use setTimeout to mimic an asynchronous database fetch
-    const fetchTimeout = setTimeout(() => {
-      // In a real application, this is where you would call your database API
-      // Example: const fetchedData = await yourDatabaseService.getReports(userId);
-      // For now, we're using dummyReports.
-      setReports(dummyReports);
-      setIsLoading(false);
-      console.log("Reports fetched (dummy data):", dummyReports);
-    }, 1500); // Simulate a 1.5-second network delay
+      try {
+        // Fetching all reports from the backend
+        const response = await fetch(`http://localhost:8080/health-reports/${userId}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
 
-    // Cleanup function: clear the timeout if the component unmounts
-    return () => clearTimeout(fetchTimeout);
-  }, []); // Empty dependency array means this effect runs once on mount
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to fetch reports: ${response.status} - ${errorText || response.statusText}`);
+        }
+
+        const fetchedReports: HealthReport[] = await response.json();
+        setReports(fetchedReports); // Update state with fetched reports
+        console.log("Fetched health reports:", fetchedReports);
+
+      } catch (e: any) {
+        console.error('Fetch reports API error:', e);
+        setError(`Could not load reports. ${e.message || 'Network error.'}`);
+      } finally {
+        setIsLoading(false); // Stop loading regardless of success or failure
+      }
+    };
+
+    fetchHealthReports(); // Call the fetch function when the component mounts
+  }, []); // Empty dependency array means this runs once on mount
+
+  // Handler for navigating back to the dashboard
+  // const handleGoToDashboard = () => {
+  //   router.back(); // Go back to the previous screen (Dashboard)
+  // };
 
   if (isLoading) {
     return (
@@ -71,17 +58,36 @@ export default function ReportListScreen() {
     );
   }
 
+  if (error) {
+    return (
+      <View style={styles.centeredMessageContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+        <Text style={styles.errorText}>Please ensure the backend is running and reachable.</Text>
+        {/* <TouchableOpacity onPress={handleGoToDashboard} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Back to Dashboard</Text>
+        </TouchableOpacity> */}
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
+      {/* Back Button */}
+      {/* <TouchableOpacity onPress={handleGoToDashboard} style={styles.backButton}>
+        <Text style={styles.backButtonText}>← Back to Dashboard</Text>
+      </TouchableOpacity> */}
+      
       <Text style={styles.title}>My Health Reports</Text>
       <Text style={styles.subtitle}>A history of your health observations.</Text>
 
       {reports.length === 0 ? (
-        <Text style={styles.noReportsText}>No reports found. Submit one from the Dashboard!</Text>
+        <View style={styles.centeredMessageContainer}>
+          <Text style={styles.noReportsText}>No reports found. Submit one from the Dashboard!</Text>
+        </View>
       ) : (
         <FlatList
           data={reports}
-          keyExtractor={(item) => item.id} // Unique key for each item
+          keyExtractor={(item) => String(item.id)} // Use item.id as key, converted to string
           renderItem={({ item }) => <HealthReportCard report={item} />}
           contentContainerStyle={styles.listContent} // Apply padding to the content of the list
         />
@@ -107,6 +113,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#555',
   },
+  centeredMessageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -128,5 +140,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 50,
     color: '#888',
+  },
+  errorText: {
+    color: 'red',
+    textAlign: 'center',
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  backButton: {
+    alignSelf: 'flex-start', // Align to the left
+    marginBottom: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 8,
+  },
+  backButtonText: {
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

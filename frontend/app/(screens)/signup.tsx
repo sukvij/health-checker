@@ -10,7 +10,7 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const router = useRouter();
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     // In a real app, you would perform user registration here (e.g., API call)
     console.log('Attempting sign up with:', { email, password, confirmPassword });
 
@@ -19,9 +19,24 @@ export default function SignUpScreen() {
       console.error("Passwords do not match!");
       return;
     }
-
+  try {
+    const response = await fetch('http://localhost:8080/user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ "email":email }),
+    });
+    if (!response.ok) throw new Error('Login failed');
+    const data = await response.json();
+    console.log(data)
     // Simulate successful signup and navigate to login or profile
     router.replace('/(screens)/login'); // After signup, typically go to login
+    return true;
+  } catch (error) {
+    console.error('Login API error:', error);
+    return false;
+  }
+
+    
     // Or, if you auto-login after signup: router.replace('/(screens)/profile');
   };
 

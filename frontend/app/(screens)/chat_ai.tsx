@@ -1,98 +1,188 @@
 // app/(screens)/chat_ai.tsx
 import { View, Text, StyleSheet, FlatList, TextInput, KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator, Keyboard } from 'react-native';
 import React, { useState, useEffect, useRef } from 'react';
-import { ChatMessage } from '../../types/chats'; // Import ChatMessage type
-import * as aiService from '../../services/AIService'; // Import AI service (which also uses dummy data)
+import { useRouter } from 'expo-router';
+import { ChatMessage, BackendChatMessage } from '../../types/chats'; // Import both types
+// import AsyncStorage from '@react-native-async-storage/async-storage';
+import Markdown from 'react-native-markdown-display'; // Import the Markdown component
 
-// Define a maximum height for the input text area to prevent it from taking up too much screen space
-const MAX_INPUT_HEIGHT = 120; // Example: roughly 3-4 lines of text
-const MIN_INPUT_HEIGHT = 40; // Initial minimum height for the input field
+const MAX_INPUT_HEIGHT = 120;
+const MIN_INPUT_HEIGHT = 40;
 
 export default function ChatAIScreen() {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: 'init-ai', text: "Hello! I'm your HealthCheck AI. How can I assist you today?", sender: 'ai', timestamp: new Date().toISOString() },
-  ]);
+  const router = useRouter();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState<string>('');
   const [isSending, setIsSending] = useState<boolean>(false);
-  const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT); // State to manage TextInput height
+  const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT);
   const flatListRef = useRef<FlatList>(null);
-  
-  useEffect(() => {
-    // --- DATABASE INITIALIZATION (COMMENTED OUT) ---
-    // In a real application, you might initialize your database service here.
-    // databaseService.initializeFirebase();
 
-    // --- REAL-TIME CHAT HISTORY FETCH (COMMENTED OUT) ---
-    /*
-    const unsubscribe = databaseService.onChatHistoryUpdate((fetchedMessages) => {
-      if (fetchedMessages.length === 0) {
-        setMessages([{ id: 'init-ai', text: "Hello! I'm your HealthCheck AI. How can I assist you today?", sender: 'ai', timestamp: new Date().toISOString() }]);
-      } else {
-        setMessages(fetchedMessages);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  // --- Effect to fetch userId from AsyncStorage and load chat history ---
+  useEffect(() => {
+    const loadChatData = async () => {
+      setIsLoadingHistory(true);
+      setHistoryError(null);
+      
+      try {
+        const storedUserId = await localStorage.getItem('currentUserId');
+        if (!storedUserId) {
+          throw new Error('User not logged in. User ID not found.');
+        }
+        const userId = Number(storedUserId);
+        setCurrentUserId(userId);
+
+        const response = await fetch(`http://localhost:8080/history/${userId}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to fetch chat history: ${response.status} - ${errorText || response.statusText}`);
+        }
+
+        const fetchedHistory: BackendChatMessage[] = await response.json();
+        
+        const transformedMessages: ChatMessage[] = [];
+        fetchedHistory.forEach((chatEntry, index) => {
+            // Add user's message
+            transformedMessages.push({
+                id: chatEntry.id, // Using backend ID for user message part
+                userId: chatEntry.user_id,
+                text: chatEntry.text,
+                sender: 'user',
+                timestamp: chatEntry.timestamp,
+            });
+            // Add AI's response if it exists
+            if (chatEntry.response) {
+                // Generate a unique ID for the AI's response part
+                transformedMessages.push({
+                    id: chatEntry.id + 0.5, // Simple way to make it unique for this pair
+                    userId: chatEntry.user_id,
+                    text: chatEntry.response,
+                    sender: 'ai',
+                    timestamp: chatEntry.timestamp, // You might use a different timestamp if AI has its own
+                });
+            }
+        });
+
+        if (transformedMessages.length === 0) {
+          setMessages([
+            { id: Date.now(), userId: userId, text: "नमस्ते! मैं आपका हेल्थचेक AI हूँ। आज मैं आपकी क्या मदद कर सकता हूँ?", sender: 'ai', timestamp: new Date().toISOString() },
+          ]);
+        } else {
+          setMessages(transformedMessages);
+        }
+
+      } catch (e: any) {
+        console.error('Chat history error:', e);
+        setHistoryError(`चैट हिस्ट्री लोड नहीं हो सकी। ${e.message || 'नेटवर्क समस्या।'}`);
+        setMessages([
+          { id: Date.now(), userId: 0, text: `त्रुटि: चैट लोड नहीं हो सकी: ${e.message || 'कृपया अपना कनेक्शन जांचें।'}`, sender: 'ai', timestamp: new Date().toISOString() },
+        ]);
+      } finally {
+        setIsLoadingHistory(false);
       }
-    });
-    return () => {
-      // unsubscribe(); // Uncomment in a real app to clean up database listener
     };
-    */
-    // --- END COMMENTED OUT DATABASE LOGIC ---
+
+    loadChatData();
   }, []);
 
+  // --- Effect to scroll to bottom when messages array changes ---
   useEffect(() => {
-    // Scroll to bottom when messages array changes
-    // This is crucial to keep the latest messages visible above the keyboard.
-    if (messages.length > 0) {
+    if (messages.length > 0 && !isSending) {
       flatListRef.current?.scrollToEnd({ animated: true });
     }
-  }, [messages]);
+  }, [messages, isSending]);
 
+  // --- Handle sending a new message ---
   const handleSendMessage = async () => {
-    if (inputText.trim() === '') return;
+    if (inputText.trim() === '' || !currentUserId || isSending) return;
 
     const userMessageText = inputText.trim();
     const newUserMessage: ChatMessage = {
-      id: Date.now().toString(),
+      id: Date.now(), // Frontend ID
+      userId: currentUserId,
       text: userMessageText,
       sender: 'user',
       timestamp: new Date().toISOString(),
     };
 
+    // Optimistically add user's message to UI
     const updatedMessages = [...messages, newUserMessage];
     setMessages(updatedMessages);
-    setInputText(''); // Clear input field after sending
-    setInputHeight(MIN_INPUT_HEIGHT); // Reset input height after sending
+    setInputText('');
+    setInputHeight(MIN_INPUT_HEIGHT);
     setIsSending(true);
 
-    // --- SAVE USER MESSAGE TO DATABASE (COMMENTED OUT) ---
-    // await databaseService.saveChatHistory(updatedMessages);
-    // --- END COMMENTED OUT DATABASE LOGIC ---
+    try {
+      const response = await fetch(`http://localhost:8080/history`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: currentUserId, // Backend expects user_id
+          text: userMessageText,
+          sender: 'user',
+          timestamp: new Date().toISOString(),
+        }),
+      });
 
-    const aiResponseText = await aiService.getAISuggestion(userMessageText);
-    const newAiMessage: ChatMessage = {
-      id: Date.now().toString() + 'ai',
-      text: aiResponseText,
-      sender: 'ai',
-      timestamp: new Date().toISOString(),
-    };
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`संदेश भेजने में विफल: ${response.status} - ${errorText || response.statusText}`);
+      }
 
-    const finalMessages = [...updatedMessages, newAiMessage];
-    setMessages(finalMessages);
-    setIsSending(false);
+      // Backend returns a single string AI response
+      const aiResponseText: string = await response.text(); 
+      console.log('AI रॉ प्रतिक्रिया:', aiResponseText);
 
-    // --- SAVE FULL CHAT HISTORY TO DATABASE (COMMENTED OUT) ---
-    // await databaseService.saveChatHistory(finalMessages);
-    // --- END COMMENTED OUT DATABASE LOGIC ---
+      const newAiMessage: ChatMessage = {
+        id: Date.now() + 1, // Unique ID for AI message
+        userId: currentUserId,
+        text: aiResponseText, // AI's response is the text for this message
+        sender: 'ai',
+        timestamp: new Date().toISOString(),
+      };
+
+      // Add AI's response to UI
+      setMessages((prevMessages) => [...prevMessages, newAiMessage]);
+
+    } catch (e: any) {
+      console.error('संदेश भेजने का API त्रुटि:', e);
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        {
+          id: Date.now() + 2, // Unique ID for error message
+          userId: currentUserId || 0,
+          text: `त्रुटि: AI प्रतिक्रिया नहीं मिल सकी। ${e.message || 'नेटवर्क समस्या।'}`,
+          sender: 'ai',
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    } finally {
+      setIsSending(false);
+    }
   };
 
-  // Function to dynamically adjust TextInput height
   const handleContentSizeChange = (event: any) => {
     const newHeight = Math.max(MIN_INPUT_HEIGHT, Math.min(MAX_INPUT_HEIGHT, event.nativeEvent.contentSize.height));
     setInputHeight(newHeight);
   };
 
+  // --- renderMessage function remains the same, as it now receives proper ChatMessage objects ---
   const renderMessage = ({ item }: { item: ChatMessage }) => (
     <View style={[styles.messageBubble, item.sender === 'user' ? styles.userBubble : styles.aiBubble]}>
-      <Text style={item.sender === 'user' ? styles.userText : styles.aiText}>{item.text}</Text>
+      {item.sender === 'ai' ? (
+        // Render AI messages using Markdown
+        <Markdown style={markdownStyles}>{item.text}</Markdown>
+      ) : (
+        // Render user messages as plain Text
+        <Text style={styles.userText}>{item.text}</Text>
+      )}
       {item.timestamp && (
         <Text style={item.sender === 'user' ? styles.userTimestamp : styles.aiTimestamp}>
           {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -101,41 +191,63 @@ export default function ChatAIScreen() {
     </View>
   );
 
+  // const handleGoToDashboard = () => {
+  //   router.back();
+  // };
+
+  if (isLoadingHistory) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>चैट हिस्ट्री लोड हो रही है...</Text>
+      </View>
+    );
+  }
+
+  if (historyError || !currentUserId) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{historyError || 'यूज़र आईडी लोड करने में विफल। कृपया फिर से लॉग इन करें।'}</Text>
+        {/* <TouchableOpacity onPress={handleGoToDashboard} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← डैशबोर्ड पर वापस</Text>
+        </TouchableOpacity> */}
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      // Offset for iOS. This value often needs fine-tuning based on your specific device/emulator.
-      // It should account for the height of your navigation bar/header and any bottom safe area.
-      // A value of 90-100 is common. Adjust if the input is still obscured.
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0} 
     >
+      {/* <TouchableOpacity onPress={handleGoToDashboard} style={styles.backButton}>
+        <Text style={styles.backButtonText}>← डैशबोर्ड पर वापस</Text>
+      </TouchableOpacity> */}
+
       <FlatList
         ref={flatListRef}
         data={messages}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => String(item.id)}
         renderItem={renderMessage}
-        // Add sufficient padding at the bottom of the FlatList content
-        // This ensures the last messages are not hidden behind the input bar
         contentContainerStyle={styles.messageList} 
-        // These ensure the list scrolls to the end when content changes
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
         onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
       />
 
       <View style={styles.inputContainer}>
         <TextInput
-          style={[styles.textInput, { height: inputHeight }]} // Apply dynamic height
-          placeholder="Type your message..."
+          style={[styles.textInput, { height: inputHeight }]}
+          placeholder="अपना संदेश लिखें..."
           placeholderTextColor="#888"
           value={inputText}
           onChangeText={setInputText}
-          onContentSizeChange={handleContentSizeChange} // Listen for content size changes
+          onContentSizeChange={handleContentSizeChange}
           onSubmitEditing={handleSendMessage} 
           returnKeyType="send" 
           editable={!isSending} 
-          multiline // Ensure multiline input is enabled
-          textAlignVertical="top" // Ensure text starts from the top
+          multiline 
+          textAlignVertical="top" 
         />
         <TouchableOpacity
           style={styles.sendButton}
@@ -145,7 +257,7 @@ export default function ChatAIScreen() {
           {isSending ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Text style={styles.sendButtonText}>Send</Text>
+            <Text style={styles.sendButtonText}>भेजें</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -163,7 +275,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, 
     flexGrow: 1, 
     justifyContent: 'flex-end', 
-    paddingBottom: 20, // Keep a base padding at the bottom
+    paddingBottom: 20,
   },
   messageBubble: {
     paddingVertical: 8, 
@@ -195,7 +307,7 @@ const styles = StyleSheet.create({
     color: '#000', 
     fontSize: 16,
   },
-  aiText: {
+  aiText: { 
     color: '#000', 
     fontSize: 16,
   },
@@ -213,12 +325,10 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-end', // Align items to the bottom of the container
+    alignItems: 'flex-end',
     paddingHorizontal: 10,
     paddingVertical: 8, 
     backgroundColor: '#F0F0F0', 
-    marginBottom: 100,
-    // No marginBottom here, KeyboardAvoidingView handles the lift.
   },
   textInput: {
     flex: 1,
@@ -226,12 +336,10 @@ const styles = StyleSheet.create({
     borderColor: '#CCC', 
     borderRadius: 25, 
     paddingHorizontal: 15,
-    paddingVertical: 10, // Adjust padding to control initial height
+    paddingVertical: 10, 
     marginRight: 8, 
     backgroundColor: '#fff',
     fontSize: 16,
-    // minHeight is now managed by the state `inputHeight`
-    // maxHeight is implicitly handled by `MAX_INPUT_HEIGHT` in `handleContentSizeChange`
   },
   sendButton: {
     backgroundColor: '#128C7E', 
@@ -246,4 +354,96 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#ECE5DD',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#555',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#ECE5DD',
+  },
+  errorText: {
+    color: 'red',
+    textAlign: 'center',
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    marginLeft: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 8,
+  },
+  backButtonText: {
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+});
+
+// Styles for Markdown rendering. Adjust these as needed to match your design.
+const markdownStyles = StyleSheet.create({
+    body: { // General text style applied to the whole Markdown content
+        fontSize: 16,
+        color: '#000',
+    },
+    heading1: { // Styles for # headings
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginTop: 10,
+        marginBottom: 5,
+        color: '#333', // Ensure color is explicitly set
+    },
+    heading2: { // Styles for ## headings
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginTop: 8,
+        marginBottom: 4,
+        color: '#333', // Ensure color is explicitly set
+    },
+    strong: { // Styles for **bold** text
+        fontWeight: 'bold',
+    },
+    em: { // Styles for *italic* text
+        fontStyle: 'italic',
+    },
+    list_item: { // Styles for list items
+        marginBottom: 4,
+        fontSize: 16,
+        color: '#000',
+    },
+    bullet_list: { // Container for unordered lists
+        marginBottom: 8,
+    },
+    ordered_list: { // Container for ordered lists
+        marginBottom: 8,
+    },
+    link: { // Styles for [links](url)
+        color: '#007AFF',
+        textDecorationLine: 'underline',
+    },
+    paragraph: { // Styles for paragraphs
+        marginBottom: 5,
+        marginTop: 0, 
+        paddingTop: 0,
+        paddingBottom: 0,
+        color: '#000', // Ensure color is explicitly set for paragraphs
+    },
+    text: { // General text style for any non-specific markdown text nodes
+      color: '#000',
+      fontSize: 16,
+    }
 });

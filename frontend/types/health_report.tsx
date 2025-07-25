@@ -1,10 +1,26 @@
 // types/health_report.ts
 export interface HealthReport {
-  id: string;
-  userId: string; // To link the report to a specific user
-  type: string; // e.g., 'Daily Log', 'Symptom Update', 'Activity'
+  // ID is the primary key, auto-incrementing integer in GORM, so 'number' in TS.
+  id: number; 
+
+  // userId links to the User model's ID, which is a 'uint' in Go, so 'number' in TS.
+  userId: number; // Changed to 'number' to match GORM's uint ID
+
+  // Type of the report (e.g., 'Daily Log', 'Symptom Update').
+  type: string; 
+
+  // Description of the health report.
   description: string;
-  date: string; // YYYY-MM-DD format for the date the report refers to
-  createdAt: string; // ISO string for when the report was submitted
-  // Add other fields as needed, e.g., attachments, severity, etc.
+
+  // Date the report refers to (YYYY-MM-DD format).
+  date: string; 
+
+  // ISO string for when the report was submitted.
+  createdAt: string; 
+
+  // ISO string for when the report was last updated (from GORM's UpdatedAt).
+  updatedAt: string; 
+  
+  // DeletedAt is handled by GORM for soft deletes and is excluded from JSON,
+  // so it's not included in this frontend interface.
 }

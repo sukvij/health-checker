@@ -1,33 +1,59 @@
 // app/(screens)/login.tsx
-import { View, Text, StyleSheet, Button, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Button, TouchableOpacity, Alert } from 'react-native';
 import React, { useState } from 'react';
-import { TextInput } from 'react-native-gesture-handler'; // Using TextInput from gesture-handler as per your original code
+import { TextInput } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
 import { User } from '../../types/user'; // Import the User type
+// import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
 
 export default function LoginScreen() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [loginError, setLoginError] = useState<string | null>(null); // State to display login errors
   const router = useRouter();
 
-  const handleLogin = () => {
-    // In a real app, you would perform authentication here (e.g., API call)
-    // For this example, we'll simulate a successful login and navigate to profile
+  const handleLogin = async () => {
+    setLoginError(null); // Clear any previous errors
+    if (!email || !password) {
+      setLoginError('Please enter both email and password.');
+      return;
+    }
+
     console.log('Attempting login with:', { email, password });
 
-    // Dummy user data for demonstration
-    const dummyUser: User = {
-      id: 'user123',
-      name: 'Vijju',
-      email: email || 'vijju@example.com',
-      // Add other user properties as needed
-    };
+    try {
+      // In a real app, you would send email and password via POST for authentication.
+      // For this example, assuming GET call to fetch user details by email after a "successful" login.
+      const response = await fetch(`http://localhost:8080/user/login/${email}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
 
-    // Navigate to the profile screen, passing dummy user data as a JSON string
-    router.replace({
-      pathname: '/(screens)/dashboard',
-      params: { user: JSON.stringify(dummyUser) },
-    });
+      if (!response.ok) {
+        // If response is not OK (e.g., 404 Not Found, 401 Unauthorized)
+        const errorData = await response.text();
+        throw new Error(errorData || 'Login failed: Invalid credentials or user not found.');
+      }
+
+      const user: User = await response.json();
+      console.log('User data fetched:', user);
+
+      // --- Store user.id in AsyncStorage ---
+      // We store the ID as a string. Convert 'number' to 'string'.
+      await localStorage.setItem('currentUserId', String(user.id));
+      console.log('User ID stored in AsyncStorage:', user.id);
+      // --- End AsyncStorage logic ---
+
+      // Navigate to the dashboard screen
+      // We no longer need to pass the user object in params if other screens fetch by stored ID
+      router.replace('/(screens)/dashboard'); 
+      
+    } catch (error: any) {
+      console.error('Login API error:', error);
+      setLoginError(error.message || 'An unexpected error occurred during login. Please try again.');
+      // Display a more prominent alert for critical errors
+      Alert.alert('Login Failed', error.message || 'An unexpected error occurred. Please try again.');
+    }
   };
 
   const handleGoToSignUp = () => {
@@ -53,6 +79,9 @@ export default function LoginScreen() {
         secureTextEntry
       />
       <Button title="Login" onPress={handleLogin} color="#007AFF" />
+
+      {/* Display login-specific errors below the button */}
+      {loginError && <Text style={styles.errorText}>{loginError}</Text>} 
 
       <View style={styles.signUpContainer}>
         <Text style={styles.signUpText}>Don't have an account?</Text>
@@ -101,5 +130,12 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontWeight: 'bold',
     marginLeft: 5,
+  },
+  errorText: { // Added style for login error messages
+    color: 'red',
+    textAlign: 'center',
+    marginTop: 10,
+    marginBottom: 10,
+    fontSize: 14,
   },
 });

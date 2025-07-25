@@ -1,11 +1,14 @@
 // app/(screens)/dashboard.tsx
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import React from 'react';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import CustomButton from '../../components/CustomButton';
+import { User } from '@/types/user';
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  // console.log(params)
 
   // Dummy data for quick stats - in a real app, this would come from a service/database
   const quickStats = {
@@ -15,7 +18,7 @@ export default function DashboardScreen() {
   };
 
   const handleViewProfile = () => {
-    router.push('/(screens)/profile');
+     router.push('/(screens)/profile');
   };
 
   const handleSubmitReport = () => {
