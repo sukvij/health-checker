@@ -6,6 +6,7 @@ import CustomTextInput from '../../components/CustomTextInput'; // Import Custom
 import CustomButton from '../../components/CustomButton'; // Import CustomButton
 import { HealthReport } from '../../types/health_report'; // Import HealthReport type
 import { User } from '@/types/user';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ReportFormScreen() {
   const router = useRouter();
@@ -26,15 +27,13 @@ export default function ReportFormScreen() {
       Alert.alert('Error', 'Please fill in all fields (Report Type, Date, Description).');
       return;
     }
+    // const userId = localStorage.getItem("currentUserId")
 
-    // 2. Ensure user ID is available
-    // if (!currentUser?.id) {
-    //   Alert.alert('Error', 'User ID is not available. Please try again or contact support.');
-    //   console.error('Submission error: currentUser.id is missing.');
-    //   return;
-    // }
 
-    const userId = localStorage.getItem("currentUserId")
+
+   
+    try {
+          const userId =await AsyncStorage.getItem("currentUserId")
     setIsSubmitting(true); // Start submission loading
 
     // Construct the new report object WITHOUT the 'id' field
@@ -46,10 +45,8 @@ export default function ReportFormScreen() {
       // createdAt and updatedAt will be handled by the backend
     };
 
-    console.log('Attempting to submit report:', newReportData);
-
-    try {
-      const response = await fetch(`http://localhost:8080/health-reports`, {
+     console.log('Attempting to submit report:', newReportData);
+      const response = await fetch(`https://health-backend-xrim.onrender.com/health-reports`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newReportData), // Send the data without 'id'

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { TextInput } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
 import { User } from '../../types/user'; // Import the User type
-// import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
 
 export default function LoginScreen() {
   const [email, setEmail] = useState<string>('');
@@ -24,7 +24,7 @@ export default function LoginScreen() {
     try {
       // In a real app, you would send email and password via POST for authentication.
       // For this example, assuming GET call to fetch user details by email after a "successful" login.
-      const response = await fetch(`http://localhost:8080/user/login/${email}`, {
+      const response = await fetch(`https://health-backend-xrim.onrender.com/user/login/${email}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -40,7 +40,7 @@ export default function LoginScreen() {
 
       // --- Store user.id in AsyncStorage ---
       // We store the ID as a string. Convert 'number' to 'string'.
-      await localStorage.setItem('currentUserId', String(user.id));
+      await AsyncStorage.setItem('currentUserId', String(user.id));
       console.log('User ID stored in AsyncStorage:', user.id);
       // --- End AsyncStorage logic ---
 

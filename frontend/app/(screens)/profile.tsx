@@ -1,57 +1,51 @@
-// app/(screens)/profile.tsx
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-// Removed 'useLocalSearchParams' as we're no longer relying on params for user data
-import { User } from '../../types/user'; // Import the User type
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { User } from '../../types/user';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ProfileScreen() {
-  // Removed params as they are no longer used for fetching user data here
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Define the async function to fetch user profile
-    const userId = localStorage.getItem("currentUserId")
     const fetchUserProfile = async () => {
-      setLoading(true); // Start loading
-      setError(null);    // Clear any previous errors
+      setLoading(true);
+      setError(null);
 
       try {
-        // Hardcoded email for direct fetch as per your request
-        const userEmailToFetch = "vijju@gmail.com"; 
+        const userId = await AsyncStorage.getItem('currentUserId');
+        if (!userId) {
+          throw new Error('No userId found in AsyncStorage');
+        }
 
-        const response = await fetch(`http://localhost:8080/user/${userId}`, {
+        // Optional: Show alert for debugging
+        Alert.alert('UserID from Storage', userId);
+
+        const response = await fetch(`https://health-backend-xrim.onrender.com/user/${userId}`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
         });
 
         if (!response.ok) {
-          // If the response is not OK (e.g., 404 Not Found, 500 Internal Server Error)
-          const errorText = await response.text(); // Get detailed error from backend
+          const errorText = await response.text();
           throw new Error(`Failed to fetch user: ${response.status} - ${errorText || response.statusText}`);
         }
 
         const fetchedUser: User = await response.json();
-        setUser(fetchedUser); // Set the fetched user data
-        console.log("Fetched user data directly:", fetchedUser);
-
+        setUser(fetchedUser);
+        console.log('Fetched user data directly:', fetchedUser);
       } catch (e: any) {
         console.error('Profile API error:', e);
-        // Set a user-friendly error message
         setError(`Could not load profile. ${e.message || 'Network error.'}`);
-        setUser(null); // Ensure user is null if there's an error
+        setUser(null);
       } finally {
-        setLoading(false); // Stop loading regardless of success or failure
+        setLoading(false);
       }
     };
 
-    fetchUserProfile(); // Call the fetch function when the component mounts
-
-    // No dependency array, meaning this effect runs only once after the initial render.
-    // If you wanted to refetch when something else changes, you'd add it here.
-  }, []); 
-
+    fetchUserProfile();
+  }, []);
 
   if (loading) {
     return (
@@ -72,7 +66,6 @@ export default function ProfileScreen() {
   }
 
   if (!user) {
-    // This handles the case where loading is false but user is null (e.g., due to error or no data)
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>No user profile data was retrieved.</Text>
@@ -95,7 +88,6 @@ export default function ProfileScreen() {
         <Text style={styles.infoValue}>{user.email || 'Not available'}</Text>
       </View>
 
-      {/* You can add more profile-related information here */}
       <View style={styles.infoCard}>
         <Text style={styles.infoLabel}>Current Status:</Text>
         <Text style={styles.infoValue}>Feeling good today!</Text>

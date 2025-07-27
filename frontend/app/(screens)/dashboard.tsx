@@ -17,6 +17,11 @@ export default function DashboardScreen() {
     upcomingAppointments: 'None',
   };
 
+
+   const handleEntireReport = () => {
+    router.push('/(screens)/entireReport.tsx');
+  };
+
   const handleViewProfile = () => {
      router.push('/(screens)/profile');
   };
@@ -64,6 +69,12 @@ export default function DashboardScreen() {
           onPress={handleChatWithAI}
           style={styles.button}
           color="#6f42c1"
+        />
+        <CustomButton
+          title="View Entire Medical Report"
+          onPress={handleEntireReport}
+          style={styles.button}
+          color="#dc3545" // Red-ish color
         />
       </View>
 

@@ -20,7 +20,7 @@ export interface BackendChatMessage {
  * into distinct entries for the FlatList.
  */
 export interface ChatMessage {
-  id: number;
+  // id: string;
   userId: number; // Changed to camelCase for frontend consistency
   text: string; // The content of this specific message bubble (either user's or AI's)
   sender: 'user' | 'ai';

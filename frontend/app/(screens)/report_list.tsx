@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router'; // Import useRouter for navigation
 import HealthReportCard from '../../components/HealthReportCard'; // Import HealthReportCard
 import { HealthReport } from '../../types/health_report'; // Import HealthReport type
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ReportListScreen() {
   const router = useRouter(); // Initialize useRouter
@@ -12,14 +13,15 @@ export default function ReportListScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const userId = localStorage.getItem("currentUserId")
+    // const userId = localStorage.getItem("currentUserId")
+    
     const fetchHealthReports = async () => {
       setIsLoading(true); // Start loading
       setError(null);     // Clear any previous errors
-
+      const userId = await AsyncStorage.getItem("currentUserId")
       try {
         // Fetching all reports from the backend
-        const response = await fetch(`http://localhost:8080/health-reports/${userId}`, {
+        const response = await fetch(`https://health-backend-xrim.onrender.com/health-reports/${userId}`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
         });
