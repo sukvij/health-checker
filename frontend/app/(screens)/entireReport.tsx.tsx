@@ -1,49 +1,44 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, ScrollView, StyleSheet, Alert, Button } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { View, Text, ActivityIndicator, ScrollView, StyleSheet, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Markdown from 'react-native-markdown-display';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
-import * as Print from 'expo-print';
 
 export default function EntireReportScreen() {
-  const { user_id } = useLocalSearchParams();
+  const [userId, setUserId] = useState<string | null>(null);
   const [report, setReport] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user_id) return;
-
-    const fetchReport = async () => {
+    const loadUserIdAndFetchReport = async () => {
       try {
-        const res = await fetch(`https://health-backend-xrim.onrender.com/entire-report/${user_id}`);
-        const text = await res.text(); // because AI returns plain text
-        setReport(text);
-      } catch (e) {
+        const id = await AsyncStorage.getItem('currentUserId');
+        if (!id) {
+          Alert.alert('User ID not found in local storage');
+          setLoading(false);
+          return;
+        }
+        setUserId(id);
+        alert(id)
+        const res = await fetch(`https://health-backend-xrim.onrender.com/entire-report/${id}`);
+        if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
+        const rawText = await res.text();
+
+        const formattedText = rawText
+          .replace(/\\n/g, '\n')
+          .replace(/\*\*/g, '**')
+          .replace(/\\\*/g, '*');
+
+        setReport(formattedText);
+      } catch (err) {
+        console.error('Error loading report:', err);
         Alert.alert('Error', 'Failed to load medical report');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchReport();
-  }, [user_id]);
-
-  const handleDownloadPDF = async () => {
-    try {
-      const html = `<html><body><pre style="font-size: 16px;">${report.replace(/\n/g, '<br/>')}</pre></body></html>`;
-      const { uri } = await Print.printToFileAsync({ html });
-
-      if (!(await Sharing.isAvailableAsync())) {
-        Alert.alert('Sharing is not available on this device');
-        return;
-      }
-
-      await Sharing.shareAsync(uri);
-    } catch (e) {
-      Alert.alert('PDF Error', 'Unable to generate or share PDF');
-    }
-  };
+    loadUserIdAndFetchReport();
+  }, []);
 
   if (loading) {
     return (
@@ -57,8 +52,7 @@ export default function EntireReportScreen() {
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.heading}>📋 AI-Generated Medical Summary</Text>
-      <Markdown style={markdownStyles}>{report}</Markdown>
-      <Button title="Download as PDF" onPress={handleDownloadPDF} />
+      <Markdown style={markdownStyles}>{report || 'No report available.'}</Markdown>
     </ScrollView>
   );
 }
@@ -77,6 +71,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 16,
+    color: '#222',
   },
 });
 
@@ -86,17 +81,10 @@ const markdownStyles = StyleSheet.create({
     lineHeight: 24,
     color: '#333',
   },
+  bullet_list: {
+    marginBottom: 8,
+  },
   strong: {
     fontWeight: 'bold',
-  },
-  em: {
-    fontStyle: 'italic',
-  },
-  bullet_list: {
-    marginVertical: 8,
-    paddingLeft: 16,
-  },
-  list_item: {
-    marginBottom: 5,
   },
 });

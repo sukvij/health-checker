@@ -30,10 +30,10 @@ CREATE TABLE IF NOT EXISTS health_reports (
 -- Create ChatSessions Table
 -- This table stores the entire chat history for a user as a JSON string.
 -- A unique index on user_id ensures each user has only one chat session record.
-CREATE TABLE IF NOT EXISTS chat_sessions (
+CREATE TABLE IF NOT EXISTS chat_messages (
     id INT PRIMARY KEY AUTO_INCREMENT, -- Auto-incrementing integer ID
     user_id INT UNIQUE NOT NULL, -- References INT ID of users table, UNIQUE ensures one chat session per user
-    messages JSON NOT NULL, -- Stores the array of ChatMessage as JSON (MySQL's JSON type)
+    messages VARCHAR(100) NOT NULL, -- Stores the array of ChatMessage as JSON (MySQL's JSON type)
     last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
